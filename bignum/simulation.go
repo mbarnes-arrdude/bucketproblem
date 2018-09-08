@@ -8,9 +8,9 @@ import (
 //SimulationState holds the state of a bucket at a particular step
 // Values calculated are solution after accompanied operation.
 type SimulationState struct {
-	Operation     bp.SimulationOperation
-	AmountBucketA *big.Int
-	AmountBucketB *big.Int
+	Operation     bp.SimulationOperation `json:"operation"`
+	AmountBucketA *big.Int               `json:"bucketa"`
+	AmountBucketB *big.Int               `json:"bucketb"`
 }
 
 //BucketStateList is an array of SimulationState pointers
@@ -18,11 +18,11 @@ type BucketStateList []*SimulationState
 
 // Stores in order of operation.
 type BucketStateCache struct {
-	BucketStateList
-	s          *Solution
-	FillCount  *big.Int
-	PourCount  *big.Int
-	EmptyCount *big.Int
+	BucketStateList `json:"bucketstatelist"`
+	s               *Solution
+	FillCount       *big.Int `json:"fillcount"`
+	PourCount       *big.Int `json:"pourcount"`
+	EmptyCount      *big.Int `json:"emptycount"`
 }
 
 func newBucketState(from *big.Int, to *big.Int, operation bp.SimulationOperation, fromb bool) (s *SimulationState) {

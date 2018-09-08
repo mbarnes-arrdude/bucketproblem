@@ -76,8 +76,7 @@ func main() {
 
 		chans := newchans()
 		solution := bignum.NewSolution(problem)
-		controller := bignum.NewChannelController(solution, false)
-		controller = bignum.GetIdleSolutionProcessor(name, controller, &chans.stateChannel, &chans.resultsChannel)
+		controller := bignum.GetIdleSolutionProcessor(name, solution, &chans.stateChannel, &chans.resultsChannel)
 		controlChannel := controller.GetStopStartChannel()
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -98,7 +97,6 @@ func (c *Chans) doProcStartStop(controlChannel *chan bignum.ProcessControlOperat
 		select {
 		case op := <-c.stateChannel:
 			fmt.Printf("FLOW: %s\n", op)
-			fmt.Printf("ERROR?: %s\n", int(op)&int(bignum.Error))
 			if int(op)&int(bignum.Error) > 0 {
 				running = false
 				fmt.Println("ERROR!")

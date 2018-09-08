@@ -67,7 +67,7 @@ func main() {
 					}
 				}
 				if idx != 0 {
-					printTableEntry(idx, lastbucket)
+					printTableEntry(idx, lastbucket, solution.FromB)
 				}
 				lastbucket = bucket
 			}
@@ -103,8 +103,32 @@ func main() {
 	app.Run(os.Args)
 }
 
-func printTableEntry(idx int, lastbucket *bucketproblem.SimulationState) (int, error) {
-	return fmt.Printf("%15d) | %16v | %c | %v\n", idx-1, lastbucket.AmountBucketA, lastbucket.Operation.Rune(), lastbucket.AmountBucketB)
+func printTableEntry(idx int, lastbucket *bucketproblem.SimulationState, fromb bool) (int, error) {
+	var dira = ' '
+	var dirx = ' '
+	var dirb = ' '
+	if lastbucket.Operation == bp.Fill {
+		if fromb {
+			dirb = lastbucket.Operation.Rune()
+		} else {
+			dira = lastbucket.Operation.Rune()
+		}
+	} else if lastbucket.Operation == bp.Empty {
+		if fromb {
+			dira = lastbucket.Operation.Rune()
+		} else {
+			dirb = lastbucket.Operation.Rune()
+		}
+	} else if lastbucket.Operation == bp.Pour {
+		if fromb {
+			dira = lastbucket.Operation.Rune()
+		} else {
+			dirb = lastbucket.Operation.Rune()
+		}
+	} else {
+		dirx = lastbucket.Operation.Rune()
+	}
+	return fmt.Printf("%15d) | %16v |%c%c%c| %v\n", idx-1, lastbucket.AmountBucketA, dira, dirx, dirb, lastbucket.AmountBucketB)
 }
 
 func printLastTableEntry(idx *big.Int, lastbucket *bucketproblem.SimulationState) (int, error) {

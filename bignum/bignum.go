@@ -9,7 +9,8 @@ func GetRunningSolutionProcessor(s *Solution) *ChannelController {
 }
 
 //GetRunningSolutionProcessor() creates a Solution which waits in idle state and returns the pointer.
-func GetIdleSolutionProcessor(poolid string, c *ChannelController, stateChannel *chan ProcessControlOperation, resultChannel *chan SimulationState) *ChannelController {
+func GetIdleSolutionProcessor(poolid string, s *Solution, stateChannel *chan ProcessControlOperation, resultChannel *chan SimulationState) *ChannelController {
+	c := NewChannelController(s, false)
 	var hash = c.solution.Problem.Hash()
 	var name = fmt.Sprintf("%s%019d", bp.GetVersionId(), hash)
 	if stateChannel != nil {

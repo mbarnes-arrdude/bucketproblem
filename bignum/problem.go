@@ -6,9 +6,9 @@ import (
 
 //Problem defines the parameters of the algorithm
 type Problem struct {
-	BucketA *big.Int
-	BucketB *big.Int
-	Desired *big.Int
+	BucketA *big.Int `json:"bucketa"`
+	BucketB *big.Int `json:"bucketb"`
+	Desired *big.Int `json:"desired"`
 }
 
 //NewProblem creates a new Problem from parameters describing each bucket size and the desired remainder.

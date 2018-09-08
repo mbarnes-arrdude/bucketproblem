@@ -8,19 +8,19 @@ import (
 //Solution is the data and metadata of a completed Problem
 // Return object of Problem.Solution()
 type Solution struct {
-	Problem             *Problem
-	Denominator         *big.Int
-	MultInverseA        *big.Int
-	MultInverseB        *big.Int
-	Code                p.ResultCode
+	Problem             *Problem     `json:"problem"`
+	Denominator         *big.Int     `json:"denominator"`
+	MultInverseA        *big.Int     `json:"multinva"`
+	MultInverseB        *big.Int     `json:"multinvb"`
+	Code                p.ResultCode `json:"result"`
 	TvolumeA            *big.Int
 	TvolumeB            *big.Int
 	CountFromA          *big.Int
 	CountFromB          *big.Int
-	FromB               bool
+	FromB               bool `json:"fromb"`
 	PredictedStateCount *big.Int
 
-	Operations *BucketStateCache
+	Operations *BucketStateCache `json:"operations"`
 }
 
 //NewSolution solves and creates a completed *Solution using the values of a *Problem for its parameters.
