@@ -1,66 +1,112 @@
 package main
 
 import (
+	bp "arrdude.com/bucketproblem"
 	bucketproblem "arrdude.com/bucketproblem/bignum"
+	"errors"
 	"fmt"
+	"github.com/urfave/cli"
 	"math/big"
+	"os"
 )
 
+type Job struct {
+}
+
 func main() {
+	app := cli.NewApp()
+	app.Usage = "calcbucket bucketa bucketb desired"
+	app.Action = func(c *cli.Context) error {
+		//job := []*big.Int{big.NewInt(5),
+		//	big.NewInt(3),
+		//	big.NewInt(4)}
+		sbucketa := c.Args().Get(0)
+		sbucketb := c.Args().Get(1)
+		sdesired := c.Args().Get(2)
 
-	//biga, _ := new(big.Int).SetString("1000000000000000000000000000000000000000000001", 10)
-	//bigb, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000", 10)
-	//bigc, _ := new(big.Int).SetString("1000003", 10)
+		bucketa, avalid := new(big.Int).SetString(sbucketa, 10)
+		bucketb, bvalid := new(big.Int).SetString(sbucketb, 10)
+		desired, dvalid := new(big.Int).SetString(sdesired, 10)
 
-	jobs := [][]*big.Int{
-		{big.NewInt(5),
-			big.NewInt(3),
-			big.NewInt(4)},
+		if len(c.Args()) < 3 {
+			return errors.New("not enough arguments")
+		}
 
-		//[]*bignum.Int{bignum.NewInt(17),
-		//	bignum.NewInt(12),
-		//	bignum.NewInt(9)},
+		if avalid && bvalid && dvalid {
+			problem := bucketproblem.NewProblem(bucketa, bucketb, desired)
+			solution := bucketproblem.NewSolution(problem)
 
-		//[]*bignum.Int{bignum.NewInt(11),
-		//	bignum.NewInt(3),
-		//	bignum.NewInt(9)},
+			fmt.Println("Running GCD Solution and Simulation")
 
-		//subtractive no empty
-		//		[]*bignum.Int{bignum.NewInt(2),
-		//			bignum.NewInt(8),
-		//			bignum.NewInt(6)},
+			bucketproblem.GetRunningSolutionProcessor(solution)
 
-		//additive no empty
-		//[]*bignum.Int{bignum.NewInt(101),
-		//	bignum.NewInt(3),
-		//	bignum.NewInt(12)},
+			sdirection := "Subtractive (A -> B)"
+			if solution.FromB {
+				sdirection = "Additive (A <- B)"
+			}
 
-		//[]*bignum.Int{bignum.NewInt(15),
-		//	bignum.NewInt(5),
-		//	bignum.NewInt(5)},
+			fmt.Printf("Problem (Hash: %x)\n", problem.Hash())
+			fmt.Printf("- Bucket A: %v\n", problem.BucketA)
+			fmt.Printf("- Bucket B: %v\n", problem.BucketB)
+			fmt.Printf("- Desired: %v\n", problem.Desired)
+			fmt.Println("Solution")
+			fmt.Printf("- Result: %s\n", solution.Code)
+			fmt.Printf("- GCD: %v\n", solution.Denominator)
+			fmt.Printf("- Direction: %s\n", sdirection)
+			fmt.Printf("- Total Steps: %v\n", new(big.Int).Sub(solution.Operations.GetNextIndex(), big.NewInt(1)))
+			fmt.Println("Simulation Table")
+			truncated := false
+			lastbucket := solution.Operations.BucketStateList[0]
+			fmt.Printf("      Idx        | %16s |   | B\n", "A")
+			fmt.Println("----------------------------------------------------------")
+			for idx, bucket := range solution.Operations.BucketStateList {
+				if idx == len(solution.Operations.BucketStateList)-1 {
+					if lastbucket.AmountBucketA.Cmp(bucket.AmountBucketA) != 0 || lastbucket.AmountBucketB.Cmp(bucket.AmountBucketB) != 0 {
+						lastbucket.Operation = bp.Truncated
+						truncated = true
+					}
+				}
+				if idx != 0 {
+					printTableEntry(idx, lastbucket)
+				}
+				lastbucket = bucket
+			}
+			if truncated {
+				fmt.Println("             ...                ...       ...")
+			}
+			fmt.Println("----------------------------------------------------------")
+			finalSimulationIdx := new(big.Int).Sub(solution.Operations.GetNextIndex(), big.NewInt(1))
+			printLastTableEntry(finalSimulationIdx, lastbucket)
+			if truncated {
+				fmt.Printf("Content Truncated to %d entries (max entries). Use `runbucket` for better handling of large simulations.\n", bp.MaxOperationsListSize)
+			}
 
-		//[]*big.Int{biga,
-		//	bigb,
-		//	bigc},
+			//solution.Spew()
+		} else {
+			message := fmt.Sprint("Arguments could not be parsed:\n")
 
-		//[]*bignum.Int{bignum.NewInt(9),
-		//	bignum.NewInt(12),
-		//	bignum.NewInt(7)},
+			if !avalid {
+				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+			}
+
+			if !bvalid {
+				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+			}
+
+			if !dvalid {
+				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+			}
+			return errors.New(message)
+		}
+		return nil
 	}
-	fmt.Println("\nStarting jobs")
+	app.Run(os.Args)
+}
 
-	for idx, job := range jobs {
-		fmt.Printf("Doing Job: %d\n", idx)
-		problem := bucketproblem.NewProblem(job[0], job[1], job[2])
-		solution := bucketproblem.NewSolution(problem)
-		bucketproblem.GetRunningSolutionProcessor(solution)
-		//controlchannel := controller.GetStopStartChannel()
-		//
-		//for !solution.IsDone(){
-		//	fmt.Printf("Status: %s for %v\n", solution.GetState(), solution)
-		//	time.Sleep(5 * time.Second)
-		//}
-		solution.Spew()
-	}
-	fmt.Println("Jobs Done\n")
+func printTableEntry(idx int, lastbucket *bucketproblem.SimulationState) (int, error) {
+	return fmt.Printf("%15d) | %16v | %c | %v\n", idx-1, lastbucket.AmountBucketA, lastbucket.Operation.Rune(), lastbucket.AmountBucketB)
+}
+
+func printLastTableEntry(idx *big.Int, lastbucket *bucketproblem.SimulationState) (int, error) {
+	return fmt.Printf("%15v) | %16v | %c | %v\n", idx, lastbucket.AmountBucketA, lastbucket.Operation.Rune(), lastbucket.AmountBucketB)
 }

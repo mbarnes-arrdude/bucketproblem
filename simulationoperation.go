@@ -6,7 +6,8 @@ const (
 	Fill            SimulationOperation = 2
 	Pour            SimulationOperation = 3
 	FinalOp         SimulationOperation = 4
-	SimulationError SimulationOperation = 5
+	Truncated       SimulationOperation = 5
+	SimulationError SimulationOperation = 6
 )
 
 type SimulationOperation int
@@ -17,7 +18,18 @@ var SimulationOperations = [...]string{
 	"Fill",
 	"Pour",
 	"Solved",
-	"Error",
+	"Truncated",
+	"X Error",
+}
+
+var SimulationOperationChars = [...]rune{
+	'_',
+	'v',
+	'^',
+	'+',
+	'=',
+	'x',
+	'!',
 }
 
 func (o SimulationOperation) String() string {
@@ -25,4 +37,11 @@ func (o SimulationOperation) String() string {
 		return "Unknown"
 	}
 	return SimulationOperations[o]
+}
+
+func (o SimulationOperation) Rune() rune {
+	if o < InitialOp || o > SimulationError {
+		return '.'
+	}
+	return SimulationOperationChars[o]
 }

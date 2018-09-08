@@ -2,7 +2,6 @@ package bucketproblem
 
 import (
 	"fmt"
-	"os"
 )
 
 const (
@@ -13,12 +12,7 @@ const (
 	VERSION_PATCH = 1
 )
 
-//used for identity
-func GetProcessHash() int {
-	return os.Getpid()
-}
-
-var MaxOperationsListSize = 10023
+var MaxOperationsListSize = 100
 
 func GetVersionId() string {
 	return fmt.Sprintf("%2d%2d%2d%s", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, PROCESS_NAME)

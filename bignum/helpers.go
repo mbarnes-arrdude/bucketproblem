@@ -1,9 +1,9 @@
 package bignum
 
 import (
-	bp "arrdude.com/bucketproblem"
 	"fmt"
 	"math/big"
+	"strconv"
 )
 
 //no reason to reinitialize these in memory each time they are used
@@ -42,58 +42,66 @@ func (p *Problem) Spew() {
 	fmt.Printf("=== Problem: A: %v, B: %v, Desired: %v ===\n", p.BucketA, p.BucketB, p.Desired)
 }
 
-//Hash() delivers a hash of the problem in a sort domain that favors the Desired as identity, and a prime number modulus
-// of a resource identity
+//Hash() delivers a hash of the problem in a sort domain that favors scale in sort and the Desired as identity
 func (p *Problem) Hash() (hash int) {
-	//Identity is most likely to be important for LU by job. The purpose of the algorithm is anchored on the Desired
-	// outcome. When looking for "similar" problems this attribute is the most intuitively significant to application.
-	// after all it is usually easier to adjust your envionmental parameters (water jugs are easy to find) than adjust
-	// your goal.
+	var apartbig string
+	var apartsmall string
+	var bpartbig string
+	var bpartsmall string
+	var dpartbig string
+	var dpartsmall string
 
-	// 8bit randomish mod' of ^2 domain for uniqueness
-	// As a constant for this process the resulting partition scatter will group by associated processes clumping on
-	// resource associations resources closest to this one are most likely to use it. Scaled resources in micro-services
-	// environments will generally be divided into clusters of resources that the same user will use. A process id will
-	// generate a short-lived hash that will be seen most often by more closely clustered resources in horizontal scaling.
-	//
-	// The value is also likely the least significant in any purpose of the requestor being unpredictably arbitrary to
-	// an applied purpose. But it is most significant in grouping for performance metrics and this reinforces the
-	// clumpiness of it to significant resources when scaled and the system measured. Not only will it be most likely
-	// close to other system resources the user would connect to to access the value but it also is an identity key for
-	// resource management.
-	ppartshort := bp.GetProcessHash() % (0x100 - 1)
+	ahex := p.BucketA.Text(16)
+	if len(ahex) == 1 {
+		apartbig = "0"
+		apartsmall = fmt.Sprintf("%1s", ahex)
+	} else if len(ahex) == 2 {
+		apartbig = fmt.Sprintf("%1s", ahex)
+		apartsmall = ahex[len(ahex)-1:]
+	} else {
+		apartbig = ahex[:1]
+		apartsmall = ahex[len(ahex)-1:]
+	}
 
-	//bignum ints provide too large a potential domain space for encoding atomic identity. not only does it crowd entropy
-	// for an index, it exceeds it. Any cache LU by parameters is likely going to require a secondary linear search.
-	// for the potential bracket of parameters of the problem which fly towards infinity. The reduction of the domain
-	// means that some hash collision will occur. The secondary search after hash lookup should be linear with most
-	// significant
+	bhex := p.BucketB.Text(16)
+	if len(bhex) == 1 {
+		bpartbig = "0"
+		bpartsmall = fmt.Sprintf("%01s", bhex)
+	} else if len(bhex) == 2 {
+		bpartbig = fmt.Sprintf("%01s", bhex)
+		bpartsmall = bhex[len(bhex)-1:]
+	} else {
+		bpartbig = bhex[:1]
+		bpartsmall = bhex[len(bhex)-1:]
+	}
 
-	// Identity for BucketA: ^2 linear domain for clumpiness
-	// Least significant of paradomain for sort because it is a multiplier in the purpose
-	// and larger size means smaller entropy bucket for scatter
-	apartlong := p.BucketA.Int64()      //scale to 64 bits
-	apartshort := int(apartlong)        //scale to 32 bits
-	apartshort = apartshort / 0x1000000 //scale to 8 bits
+	dhex := p.Desired.Text(16)
+	if len(dhex) == 1 {
+		dpartbig = "0"
+		dpartsmall = fmt.Sprintf("%01s", dhex)
+	} else if len(dhex) == 2 {
+		dpartbig = fmt.Sprintf("%01s", dhex)
+		dpartsmall = dhex[len(dhex)-1:]
+	} else {
+		dpartbig = dhex[:1]
+		dpartsmall = dhex[len(dhex)-1:]
+	}
 
-	// Identity for BucketB: ^2 linear domain for clumpiness
-	// Most significant of paradomain because it is a quotient in the purpose
-	// and smaller size means larger scatter entropy than BucketA
-	bpartlong := p.BucketA.Int64()      //scale to 64 bits
-	bpartshort := int(bpartlong)        //scale to 32 bits
-	bpartshort = bpartshort / 0x1000000 //scale to 8 bits
+	scale := len(ahex)
+	if scale > 0xff {
+		scale = 0xff
+	}
+	spart := fmt.Sprintf("%02x", scale)
 
-	// identity domain for Desired ^2 linear domain for clumpiness
-	// Primary domain because it is most purposeful << most likely sorted for problems that are similar
-	dpartlong := p.Desired.Int64()      //scale to 64 bits
-	dpartshort := int(dpartlong)        //scale to 32 bits
-	dpartshort = dpartshort / 0x1000000 //scale to 8 bits
+	hexstr := spart + dpartbig + apartbig + bpartbig + bpartsmall + apartsmall + dpartsmall
 
-	hash = ((dpartshort << 0x18) & 0xff000000) |
-		((bpartshort << 0x10) & 0xff0000) |
-		((apartshort << 0x8) & 0xff00) |
-		(ppartshort & 0xff)
-	// identity
+	hashlong, err := strconv.ParseInt(hexstr, 16, 32)
+	hash = int(hashlong)
+	if err != nil {
+		fmt.Println("ERROR: ", err)
+	}
+
+	fmt.Println("Hash: ", hash)
 	return hash
 }
 

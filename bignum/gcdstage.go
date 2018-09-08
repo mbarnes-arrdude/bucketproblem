@@ -29,19 +29,18 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 		return
 	}
 
-	if s.Problem.Desired.Cmp(s.Problem.BucketA) != -1 {
+	if s.Problem.Desired.Cmp(s.Problem.BucketA) > -1 {
 		s.Operations.appendErrorBucket(bp.DesiredTooBig, controller)
 		return
 	}
 
-	if s.Problem.BucketB.Cmp(s.Problem.BucketA) != -1 {
+	if s.Problem.BucketB.Cmp(s.Problem.BucketA) > -1 {
 		s.Operations.appendErrorBucket(bp.BucketBTooBig, controller)
 		return
 	}
 
 	s.Denominator.GCD(s.MultInverseA, s.MultInverseB, s.Problem.BucketA, s.Problem.BucketB)
 
-	//Just in case - allowed parameters should not allow this
 	if s.Denominator.Cmp(bigzero) == -1 {
 		s.Operations.appendErrorBucket(bp.NoGCDFound, controller)
 		return
