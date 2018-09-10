@@ -8,16 +8,19 @@ import (
 )
 
 const (
-	pauserelaxedperiod              = 250
-	SimulationCollectorChannelSize  = 2
-	StateCollectorChannelBufferSize = 2
-	PublicCommandChannelBufferSize  = 2
+	pauserelaxedperiod                  = 250
+	SimulationCollectorChannelSizeSmall = 2
+	SimulationCollectorChannelSizeLarge = 200000
+	StateCollectorChannelBufferSize     = 2
+	PublicCommandChannelBufferSize      = 2
 	//ProcessControlOperation Masks
 	Noop            int = 0x0
 	Initialized     int = 0x1
 	Paused          int = 0x3
 	Complete        int = 0x7
+	ProgressStats   int = 0xf
 	Running         int = 0x10
+	RunningStats    int = 0xf0
 	StageStats      int = 0xf00
 	StageGcd        int = 0x100
 	StageSimulation int = 0x200
@@ -25,6 +28,7 @@ const (
 	ProcessFinished int = 0x1000
 	Error           int = 0x3000
 
+	Uninitialized       ProcessControlOperation = ProcessControlOperation(Noop)
 	Start               ProcessControlOperation = ProcessControlOperation(Running)
 	Pause               ProcessControlOperation = ProcessControlOperation(Paused)
 	StageDone           ProcessControlOperation = ProcessControlOperation(Complete)
@@ -36,8 +40,48 @@ const (
 
 type ProcessControlOperation int
 
+func (op *ProcessControlOperation) String() string {
+	var processnames = [...]string{
+		"Working",
+		"Complete",
+		"Error",
+	}
+	var stagenames = [...]string{
+		"Loaded",
+		"GCD",
+		"Sim",
+	}
+	var runningnames = [...]string{
+		"Idle",
+		"Run",
+	}
+
+	processidx := (int(*op) & ProcessStats) >> 24
+	stageidx := (int(*op) & StageStats) >> 16
+	runningidx := (int(*op) & RunningStats) >> 8
+	isinitialized := (int(*op) & Initialized) == Initialized
+	ispaused := (int(*op) & Paused) == Paused
+	iscomplete := (int(*op) & Initialized) == Initialized
+	isError := (int(*op) & Error) == Error
+	phase := "Stop"
+
+	if isError {
+		return "KABOOM"
+	}
+
+	if iscomplete {
+		phase = "Done"
+	} else if ispaused {
+		phase = "Paused"
+	} else if isinitialized {
+		phase = "Run"
+	}
+
+	return fmt.Sprintf("%8s - %8s - %8s - %10s", processnames[processidx], stagenames[stageidx], runningnames[runningidx], phase)
+}
+
 type ChannelController struct {
-	solution *Solution
+	Solution *Solution
 	state    int
 	autorun  bool
 
@@ -53,7 +97,7 @@ type ChannelController struct {
 
 func NewChannelController(solution *Solution, autorun bool) (state *ChannelController) {
 	state = new(ChannelController)
-	state.solution = solution
+	state.Solution = solution
 	state.autorun = autorun
 	state.state = int(Noop)
 
@@ -62,7 +106,7 @@ func NewChannelController(solution *Solution, autorun bool) (state *ChannelContr
 	state.stateEmitters = make(map[string]*chan ProcessControlOperation)
 	state.stateEmittersMutex = new(sync.Mutex)
 
-	state.simulationOperationCollector = make(chan SimulationState, SimulationCollectorChannelSize)
+	state.simulationOperationCollector = make(chan SimulationState, 1)
 	state.simulationOperationEmitters = make(map[string]*chan SimulationState)
 	state.simulationOperationEmittersMutex = new(sync.Mutex)
 
@@ -90,23 +134,20 @@ func (p *ChannelController) startListeners(autostart bool) {
 		if !autostart {
 			wg.Wait()
 		}
-		close(p.simulationOperationCollector)
 		close(p.StartStopCollector)
+		close(p.simulationOperationCollector)
 		close(p.stateCollector)
 	}()
 }
 
 func (p *ChannelController) mayContinue() bool {
 	if !p.IsRunning() || p.IsTerminated() {
-		fmt.Println("not running or is terminated")
 		return false
 	}
 	for p.IsPaused() {
-		fmt.Println("PAUSED")
 		time.Sleep(time.Duration(pauserelaxedperiod) * time.Millisecond)
 	}
 	if !p.IsRunning() || p.IsTerminated() {
-		fmt.Println("post pause not running or is terminated")
 		return false
 	}
 	return true
@@ -128,7 +169,7 @@ func (p *ChannelController) changeState(op ProcessControlOperation) {
 		p.state = p.state & ^StageStats & ^Complete
 		p.state = p.state | StageSimulation | Running | Initialized
 		defer func() {
-			go p.solution.generateSimulation(p)
+			go p.Solution.generateSimulation(p)
 		}()
 
 		return
@@ -141,7 +182,7 @@ func (p *ChannelController) changeState(op ProcessControlOperation) {
 		p.state = p.state | StageGcd | Running | Initialized
 		defer func() {
 			go func() {
-				p.solution.generateGCD(p)
+				p.Solution.generateGCD(p)
 			}()
 		}()
 		return
@@ -162,7 +203,12 @@ func (p *ChannelController) changeState(op ProcessControlOperation) {
 		return
 		break
 	case Pause:
-		p.state = p.state | Paused
+		if p.IsPaused() {
+			p.state = p.state & ^Paused
+			p.state = p.state | Initialized | Running
+		} else {
+			p.state = p.state | Paused
+		}
 		return
 		break
 	case Start:
@@ -192,6 +238,10 @@ func (s *ChannelController) GetStopStartChannel() *chan ProcessControlOperation 
 
 func (p *ChannelController) IsAutorun() bool {
 	return p.autorun
+}
+
+func (p *ChannelController) GetState() int {
+	return p.state
 }
 
 func (p *ChannelController) IsTerminated() bool {
@@ -308,15 +358,22 @@ func (s *ChannelController) listenSimulationEvents(group sync.WaitGroup, autosta
 		select {
 		case o := <-s.simulationOperationCollector:
 			for _, ch := range s.simulationOperationEmitters {
-				//BLOCKING
+				//NOT BLOCKING
 				select {
 				case *ch <- o:
 					break
+				default:
 				}
 			}
 			if int(o.Operation) >= int(bp.FinalOp) {
-				fmt.Println("Finalized")
 				running = false
+				for _, ch := range s.simulationOperationEmitters {
+					//BLOCKING
+					select {
+					case *ch <- o:
+						break
+					}
+				}
 				defer func() {
 					if o.Operation == bp.FinalOp {
 						s.stateCollector <- Done

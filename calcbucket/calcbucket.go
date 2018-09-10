@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/urfave/cli"
+	"log"
 	"math/big"
 	"os"
 )
@@ -17,9 +18,6 @@ func main() {
 	app := cli.NewApp()
 	app.Usage = "calcbucket bucketa bucketb desired"
 	app.Action = func(c *cli.Context) error {
-		//job := []*big.Int{big.NewInt(5),
-		//	big.NewInt(3),
-		//	big.NewInt(4)}
 		sbucketa := c.Args().Get(0)
 		sbucketb := c.Args().Get(1)
 		sdesired := c.Args().Get(2)
@@ -34,6 +32,7 @@ func main() {
 
 		if avalid && bvalid && dvalid {
 			problem := bucketproblem.NewProblem(bucketa, bucketb, desired)
+			log.Printf("Start: %x", problem.Hash)
 			solution := bucketproblem.NewSolution(problem)
 
 			fmt.Println("Running GCD Solution and Simulation")
@@ -51,9 +50,13 @@ func main() {
 			fmt.Printf("- Desired: %v\n", problem.Desired)
 			fmt.Println("Solution")
 			fmt.Printf("- Result: %s\n", solution.Code)
+			fmt.Printf("- Complexity: %v\n", solution.Complexity)
 			fmt.Printf("- GCD: %v\n", solution.Denominator)
 			fmt.Printf("- Direction: %s\n", sdirection)
-			fmt.Printf("- Total Steps: %v\n", new(big.Int).Sub(solution.Operations.GetNextIndex(), big.NewInt(1)))
+			fmt.Printf("- CountFromA: %v\n", solution.CountFromA)
+			fmt.Printf("- CountFromB: %v\n", solution.CountFromB)
+			fmt.Printf("- PredictedSteps: %v\n", solution.PredictedStateCount)
+			fmt.Printf("- Total Steps: %v\n", solution.Operations.GetNextIndex())
 			fmt.Println("Simulation Table")
 			truncated := false
 			lastbucket := solution.Operations.BucketStateList[0]
@@ -62,7 +65,6 @@ func main() {
 			for idx, bucket := range solution.Operations.BucketStateList {
 				if idx == len(solution.Operations.BucketStateList)-1 {
 					if lastbucket.AmountBucketA.Cmp(bucket.AmountBucketA) != 0 || lastbucket.AmountBucketB.Cmp(bucket.AmountBucketB) != 0 {
-						lastbucket.Operation = bp.Truncated
 						truncated = true
 					}
 				}
@@ -82,25 +84,29 @@ func main() {
 			}
 
 			//solution.Spew()
+			log.Printf("Done: %x", problem.Hash)
 		} else {
-			message := fmt.Sprint("Arguments could not be parsed:\n")
+			message := fmt.Sprint("Arguments could not be parsed:")
 
 			if !avalid {
-				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+				message += fmt.Sprintf(" bucketa invalid: could not parse big.Int from %s\n", sbucketa)
 			}
 
 			if !bvalid {
-				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+				message += fmt.Sprintf(" bucketb invalid: could not parse big.Int from %s\n", sbucketb)
 			}
 
 			if !dvalid {
-				message += fmt.Sprintf("bucketa invalid: could not parse big.Int from %s\n")
+				message += fmt.Sprintf(" desired invalid: could not parse big.Int from %s\n", sdesired)
 			}
 			return errors.New(message)
 		}
 		return nil
 	}
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func printTableEntry(idx int, lastbucket *bucketproblem.SimulationState, fromb bool) (int, error) {

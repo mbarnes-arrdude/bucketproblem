@@ -8,6 +8,7 @@ import (
 //SimulationState holds the state of a bucket at a particular step
 // Values calculated are solution after accompanied operation.
 type SimulationState struct {
+	Idx           *big.Int               `json: idx`
 	Operation     bp.SimulationOperation `json:"operation"`
 	AmountBucketA *big.Int               `json:"bucketa"`
 	AmountBucketB *big.Int               `json:"bucketb"`
@@ -25,8 +26,9 @@ type BucketStateCache struct {
 	EmptyCount      *big.Int `json:"emptycount"`
 }
 
-func newBucketState(from *big.Int, to *big.Int, operation bp.SimulationOperation, fromb bool) (s *SimulationState) {
+func newBucketState(idx *big.Int, from *big.Int, to *big.Int, operation bp.SimulationOperation, fromb bool) (s *SimulationState) {
 	s = new(SimulationState)
+	s.Idx = idx
 	if fromb {
 		s.AmountBucketA = new(big.Int).Set(to)
 		s.AmountBucketB = new(big.Int).Set(from)
@@ -48,66 +50,49 @@ func newBucketStateCache() (b *BucketStateCache) {
 	return b
 }
 
-//generateSimulation() is an internal function that uses the results of the previously run extended Euclidian algorithm to generate a
-// simulation of the solution.
-//
-// It derives transfer volume and approximated action count for each side then simulates the
-// chosen solution to populate MinOperations *BucketStateList. The simulated number of "fill" operations is
-// accumulated in FillCount. the Code represents the solution of running the algorithm and will be populated as
-// ResultsOK if successful or another value of psuedo enum ResultCode if there is a problem or error.
+func (b *BucketStateCache) GetLastOperation() (s *SimulationState) {
+	s = b.BucketStateList[len(b.BucketStateList)-1]
+	return s
+}
+
+//generateSimulation() simulates the chosen solution populating MinOperations *BucketStateList. The simulated number of
+// operations is accumulated in FillCount PourCount and . the Code represents the solution of running the algorithm and
+// will be populated as ResultsOK if successful or another value of psuedo enum ResultCode if there is a problem or error.
 //
 // Output is truncated if the number of steps in the simulation exceeds MaxOperationsListSize
 //
-// Returns:
+// parameter:
+// controller *ChannelController emits simulation events on channels as it traverses the solution
 // ops BucketStateList has an underlying array of the bucket states per operation
 func (s *Solution) generateSimulation(controller *ChannelController) {
+	newsize := int(s.PredictedStateCount.Int64())
+	if newsize < SimulationCollectorChannelSizeSmall {
+		newsize = SimulationCollectorChannelSizeSmall
+	} else if newsize > SimulationCollectorChannelSizeLarge {
+		newsize = SimulationCollectorChannelSizeLarge
+	}
+	controller.simulationOperationCollector = make(chan SimulationState, newsize)
 	controller.state = controller.state | StageSimulation | Running | Initialized
 	if !controller.mayContinue() {
 		return
 	}
-	//s.PredictedStateCount = new(big.Int)
-	//
 	from := new(big.Int)
 	to := new(big.Int)
-	//
+
 	capfrom := new(big.Int)
 	capto := new(big.Int)
-	//
-	//countempties := new(big.Int)
-	//
+
 	////switch buckets for additive direction and set direction specific pretenses
 	if s.FromB {
 		capfrom.Set(s.Problem.BucketB)
 		capto.Set(s.Problem.BucketA)
-		//
-		//	countempties.Mul(s.CountFromB, capfrom)
-		//	countempties.Div(countempties, capto)
-		//	//subtract a predicted empty if we will not overflow
-		//	if s.Problem.Desired.Cmp(capfrom) != 1 {
-		//		countempties.Sub(countempties, bigone)
-		//	}
-		//	s.PredictedStateCount.Set(s.CountFromB)
 	} else {
 		capfrom.Set(s.Problem.BucketA)
 		capto.Set(s.Problem.BucketB)
-		//
-		//	countempties.Div(capfrom, capto)
-		//	countempties.Mul(countempties, s.CountFromA)
-		//
-		//	if s.Problem.Desired.Cmp(s.Problem.BucketA) == 1 {
-		//		countempties.Sub(countempties, bigone)
-		//	}
-		//	s.PredictedStateCount.Set(s.CountFromA)
 	}
-	//
-	//s.PredictedStateCount.Add(s.PredictedStateCount, countempties)
-	////multiply by steps per action
-	//s.PredictedStateCount.Mul(s.PredictedStateCount, stepsPerAction)
-	////add initial state
-	//s.PredictedStateCount.Add(s.PredictedStateCount, big.NewInt(1))
 
 	if !controller.mayContinue() {
-		s.Operations.appendErrorBucket(bp.ProcessKilled, controller)
+		s.Operations.appendErrorBucket(s.Operations.GetNextIndex(), bp.ProcessKilled, controller)
 		return
 	}
 
@@ -117,7 +102,7 @@ func (s *Solution) generateSimulation(controller *ChannelController) {
 	for from.Cmp(s.Problem.Desired) != 0 && to.Cmp(s.Problem.Desired) != 0 {
 
 		if !controller.mayContinue() {
-			s.Operations.appendErrorBucket(bp.ProcessKilled, controller)
+			s.Operations.appendErrorBucket(s.Operations.GetNextIndex(), bp.ProcessKilled, controller)
 			return
 		}
 
@@ -147,7 +132,7 @@ func (s *Solution) generateSimulation(controller *ChannelController) {
 		}
 
 		if !controller.mayContinue() {
-			s.Operations.appendErrorBucket(bp.ProcessKilled, controller)
+			s.Operations.appendErrorBucket(s.Operations.GetNextIndex(), bp.ProcessKilled, controller)
 			return
 		}
 
@@ -166,7 +151,6 @@ func (s *Solution) generateSimulation(controller *ChannelController) {
 		}
 	}
 	s.Operations.appendSolvedBucket(s.Operations.GetNextIndex(), from, to, s.FromB, controller)
-
 }
 
 func (blist BucketStateList) isFull() bool {
@@ -184,7 +168,7 @@ func (s BucketStateCache) GetNextIndex() *big.Int {
 }
 
 func (c *BucketStateCache) appendInitialBucket(fromb bool, controller *ChannelController) (full bool) {
-	newstate := newBucketState(bigzero, bigzero, bp.InitialOp, fromb)
+	newstate := newBucketState(bigzero, bigzero, bigzero, bp.InitialOp, fromb)
 	controller.simulationOperationCollector <- *newstate
 	if !c.isFull() {
 		c.BucketStateList = append(c.BucketStateList, []*SimulationState{newstate}...)
@@ -194,7 +178,7 @@ func (c *BucketStateCache) appendInitialBucket(fromb bool, controller *ChannelCo
 }
 
 func (c *BucketStateCache) appendNewBucket(index *big.Int, from *big.Int, to *big.Int, op bp.SimulationOperation, fromb bool, controller *ChannelController) (full bool) {
-	newstate := newBucketState(new(big.Int).Set(from), new(big.Int).Set(to), op, fromb)
+	newstate := newBucketState(index, new(big.Int).Set(from), new(big.Int).Set(to), op, fromb)
 	controller.simulationOperationCollector <- *newstate
 	if !c.isFull() || op == bp.FinalOp {
 		c.BucketStateList = append(c.BucketStateList, []*SimulationState{newstate}...)
@@ -204,15 +188,15 @@ func (c *BucketStateCache) appendNewBucket(index *big.Int, from *big.Int, to *bi
 }
 
 func (c *BucketStateCache) appendSolvedBucket(index *big.Int, from *big.Int, to *big.Int, fromb bool, controller *ChannelController) (full bool) {
-	newstate := newBucketState(new(big.Int).Set(from), new(big.Int).Set(to), bp.FinalOp, fromb)
+	newstate := newBucketState(index, new(big.Int).Set(from), new(big.Int).Set(to), bp.FinalOp, fromb)
 	controller.simulationOperationCollector <- *newstate
 	c.BucketStateList = append(c.BucketStateList, []*SimulationState{newstate}...)
 	return true
 }
 
-func (c *BucketStateCache) appendErrorBucket(code bp.ResultCode, controller *ChannelController) (full bool) {
-	newstate := newBucketState(bigzero, bigzero, bp.SimulationError, false)
-	controller.solution.Code = code
+func (c *BucketStateCache) appendErrorBucket(index *big.Int, code bp.ResultCode, controller *ChannelController) (full bool) {
+	newstate := newBucketState(index, bigzero, bigzero, bp.SimulationError, false)
+	controller.Solution.Code = code
 	controller.simulationOperationCollector <- *newstate
 	if !c.isFull() {
 		c.BucketStateList = append(c.BucketStateList, []*SimulationState{newstate}...)

@@ -22,13 +22,12 @@ func (s Solution) Spew() {
 	fmt.Println("\n=====")
 	s.Problem.Spew()
 	fmt.Printf("Code: %s\n", s.Code)
+	fmt.Printf("Complexity: %v\n", s.Denominator)
 	fmt.Printf("Denominator: %v\n", s.Denominator)
 	fmt.Printf("MultInverseA: %v\n", s.MultInverseA)
-	fmt.Printf("MultInverseB: %v\n", s.MultInverseB)
 	fmt.Printf("CountFromA: %v\n", s.CountFromA)
 	fmt.Printf("CountFromB: %v\n", s.CountFromB)
 	fmt.Printf("TvolumeA: %v\n", s.TvolumeA)
-	fmt.Printf("TvolumeB: %v\n", s.TvolumeB)
 	fmt.Printf("FromB: %t\n", s.FromB)
 	fmt.Printf("PredictedStateCount: %v\n", s.PredictedStateCount)
 	s.Operations.Spew()
@@ -54,9 +53,9 @@ func (p *Problem) Hash() (hash int) {
 	ahex := p.BucketA.Text(16)
 	if len(ahex) == 1 {
 		apartbig = "0"
-		apartsmall = fmt.Sprintf("%1s", ahex)
+		apartsmall = ahex[:1]
 	} else if len(ahex) == 2 {
-		apartbig = fmt.Sprintf("%1s", ahex)
+		apartbig = ahex[:1]
 		apartsmall = ahex[len(ahex)-1:]
 	} else {
 		apartbig = ahex[:1]
@@ -66,10 +65,7 @@ func (p *Problem) Hash() (hash int) {
 	bhex := p.BucketB.Text(16)
 	if len(bhex) == 1 {
 		bpartbig = "0"
-		bpartsmall = fmt.Sprintf("%01s", bhex)
-	} else if len(bhex) == 2 {
-		bpartbig = fmt.Sprintf("%01s", bhex)
-		bpartsmall = bhex[len(bhex)-1:]
+		bpartsmall = bhex[:1]
 	} else {
 		bpartbig = bhex[:1]
 		bpartsmall = bhex[len(bhex)-1:]
@@ -78,10 +74,7 @@ func (p *Problem) Hash() (hash int) {
 	dhex := p.Desired.Text(16)
 	if len(dhex) == 1 {
 		dpartbig = "0"
-		dpartsmall = fmt.Sprintf("%01s", dhex)
-	} else if len(dhex) == 2 {
-		dpartbig = fmt.Sprintf("%01s", dhex)
-		dpartsmall = dhex[len(dhex)-1:]
+		dpartsmall = dhex[:1]
 	} else {
 		dpartbig = dhex[:1]
 		dpartsmall = dhex[len(dhex)-1:]
@@ -92,6 +85,7 @@ func (p *Problem) Hash() (hash int) {
 		scale = 0xff
 	}
 	spart := fmt.Sprintf("%02x", scale)
+	fmt.Printf("scale %02x\n", scale)
 
 	hexstr := spart + dpartbig + apartbig + bpartbig + bpartsmall + apartsmall + dpartsmall
 

@@ -1,7 +1,6 @@
 package bignum
 
 import (
-	"fmt"
 	"math/big"
 )
 import bp "arrdude.com/bucketproblem"
@@ -10,65 +9,57 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 	controller.state = controller.state | StageGcd | Running | Initialized
 
 	if !controller.mayContinue() {
-		s.Operations.appendErrorBucket(bp.ProcessKilled, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.ProcessKilled, controller)
 		return
 	}
 
 	if s.Problem.BucketA.Cmp(bigzero) != 1 {
-		s.Operations.appendErrorBucket(bp.BucketATooSmall, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.BucketATooSmall, controller)
 		return
 	}
 
 	if s.Problem.BucketB.Cmp(bigzero) != 1 {
-		s.Operations.appendErrorBucket(bp.BucketBTooSmall, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.BucketBTooSmall, controller)
 		return
 	}
 
 	if s.Problem.Desired.Cmp(bigzero) != 1 {
-		s.Operations.appendErrorBucket(bp.DesiredTooSmall, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.DesiredTooSmall, controller)
 		return
 	}
 
 	if s.Problem.Desired.Cmp(s.Problem.BucketA) > -1 {
-		s.Operations.appendErrorBucket(bp.DesiredTooBig, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.DesiredTooBig, controller)
 		return
 	}
 
 	if s.Problem.BucketB.Cmp(s.Problem.BucketA) > -1 {
-		s.Operations.appendErrorBucket(bp.BucketBTooBig, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.BucketBTooBig, controller)
 		return
 	}
+
+	s.Complexity.Add(s.Problem.BucketA, s.Problem.BucketB)
 
 	s.Denominator.GCD(s.MultInverseA, s.MultInverseB, s.Problem.BucketA, s.Problem.BucketB)
 
 	if s.Denominator.Cmp(bigzero) == -1 {
-		s.Operations.appendErrorBucket(bp.NoGCDFound, controller)
-		return
-	}
-
-	moddesired := new(big.Int).Mod(s.Problem.Desired, s.Denominator)
-
-	if moddesired.Cmp(bigzero) != 0 {
-		fmt.Printf("DenominatorNotMultiple!!! (A:%v B:%v) %v %% %v = %v\n", s.Problem.BucketA, s.Problem.BucketB, s.Problem.Desired, s.Denominator, moddesired)
-		s.Operations.appendErrorBucket(bp.DenominatorNotMultiple, controller)
+		s.Operations.appendErrorBucket(bigzero, bp.NoGCDFound, controller)
 		return
 	}
 
 	s.TvolumeB.Mul(s.Problem.Desired, s.MultInverseB)
 	s.CountFromB.Mod(s.TvolumeB, s.Problem.BucketA)
 
-	//s.TvolumeA.Mul(s.Problem.Desired, s.MultInverseA)
-	//s.CountFromA.Mod(s.TvolumeA, s.Problem.BucketA)
-	//s.CountFromA.Div(s.CountFromA, s.Denominator)
-	//s.CountFromB.Div(s.CountFromB, s.Denominator)
+	moddesired := new(big.Int).Mod(s.Problem.Desired, s.Denominator)
 
-	//s.TvolumeA.Mul(s.Problem.Desired, s.MultInverseA)
-	//s.CountFromA.Mod(s.TvolumeA, s.Problem.BucketB)
+	if moddesired.Cmp(bigzero) != 0 {
+		s.Operations.appendErrorBucket(bigzero, bp.DenominatorNotMultiple, controller)
+		return
+	}
 
 	s.CountFromA.Mul(s.CountFromB, bignegone)
 	s.CountFromA.Mod(s.CountFromA, s.Problem.BucketA)
 
-	//s.FromB = s.compareCountFromAandCountFromB() == 1
 	identity := s.compareCountFromAandCountFromB()
 	if identity == 0 {
 		s.FromB = s.Problem.Desired.Cmp(s.Problem.BucketB) == 0
@@ -77,9 +68,6 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 	}
 
 	s.PredictedStateCount = new(big.Int)
-
-	//from := new(big.Int)
-	//to := new(big.Int)
 
 	capfrom := new(big.Int)
 	capto := new(big.Int)
@@ -102,8 +90,8 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 		capfrom.Set(s.Problem.BucketA)
 		capto.Set(s.Problem.BucketB)
 
-		countempties.Div(capfrom, capto)
-		countempties.Mul(countempties, s.CountFromA)
+		countempties.Mul(s.CountFromA, capto)
+		countempties.Div(countempties, capfrom)
 
 		if s.Problem.Desired.Cmp(s.Problem.BucketA) == 1 {
 			countempties.Sub(countempties, bigone)
