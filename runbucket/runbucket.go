@@ -74,6 +74,7 @@ type (
 
 var lastselected = -1
 var joblist = make([]Job, 3)
+var joblistmutex = new(sync.Mutex)
 
 func main() {
 	insttext.SetText(getInitialInstructions())
@@ -82,10 +83,12 @@ func main() {
 	table.Select(0, 0).
 		SetDoneFunc(func(key tcell.Key) {
 			if key == tcell.KeyTab {
+				joblistmutex.Lock()
 				if lastselected > -1 && lastselected < len(joblist) {
 					pjob := joblist[lastselected]
 					*pjob.controller.GetStopStartChannel() <- bignum.Pause
 				}
+				joblistmutex.Unlock()
 			}
 			if key == tcell.KeyEscape {
 				app.Stop()
@@ -98,8 +101,8 @@ func main() {
 		SetSelectedFunc(
 			func(row int, column int) {
 				table.GetCell(row, 0).SetStyle(currselStyle)
-				table.SetSelectable(false, false)
 				if lastselected > -1 && lastselected < len(joblist) && row != lastselected {
+					joblistmutex.Lock()
 					oldjob := joblist[lastselected]
 					style := normStyle
 					if &oldjob != nil {
@@ -113,24 +116,28 @@ func main() {
 					}
 					table.GetCell(lastselected, 0).SetStyle(style)
 					table.GetCell(lastselected, 1).SetStyle(style)
+					joblistmutex.Unlock()
 				}
 				if row > -1 && row < len(joblist) {
+					joblistmutex.Lock()
 					lastselected = row
 					newjob := joblist[row]
 					solutiontext.SetText(printSolution(newjob.controller.Solution))
 					problemtext.SetText(printProblem(newjob.controller.Solution.Problem))
 					insttext.SetText(getSelectedInstructions())
+					joblistmutex.Unlock()
 				}
+				table.SetSelectable(false, false)
 			}).
 		SetSelectedStyle(selStyle.Decompose())
 
-	ebucketa, _ := new(big.Int).SetString("57", 10)
-	ebucketb, _ := new(big.Int).SetString("41", 10)
-	edesired, _ := new(big.Int).SetString("20", 10)
+	ebucketa, _ := new(big.Int).SetString("5", 10)
+	ebucketb, _ := new(big.Int).SetString("3", 10)
+	edesired, _ := new(big.Int).SetString("4", 10)
 
-	dbucketa, _ := new(big.Int).SetString("57", 10)
-	dbucketb, _ := new(big.Int).SetString("41", 10)
-	ddesired, _ := new(big.Int).SetString("20", 10)
+	dbucketa, _ := new(big.Int).SetString("12", 10)
+	dbucketb, _ := new(big.Int).SetString("4", 10)
+	ddesired, _ := new(big.Int).SetString("3", 10)
 
 	cbucketa, _ := new(big.Int).SetString("57", 10)
 	cbucketb, _ := new(big.Int).SetString("41", 10)
@@ -309,12 +316,16 @@ func printState(c *bignum.ChannelController) string {
 			pausepart = "Ready"
 		}
 	}
-	direction := "A->B (+)"
+	direction := "A->B (-)"
 	if c.Solution.FromB {
-		direction = "B->A (-)"
+		direction = "B->A (+)"
 	}
 	problempart := fmt.Sprintf("N: %12v", c.Solution.Problem.Desired)
-	solutionpart := fmt.Sprintf("C:%2x D:%8s P: %12v", c.Solution.GetComplexityScale(), direction, c.Solution.PredictedStateCount)
+	prediction := "Unsolvable"
+	if c.Solution.PredictedStateCount != nil {
+		prediction = fmt.Sprintf("%12v", c.Solution.PredictedStateCount)
+	}
+	solutionpart := fmt.Sprintf("C:%2x D:%8s P: %12s", c.Solution.GetComplexityScale(), direction, prediction)
 	return fmt.Sprintf("%s %s %10s", problempart, solutionpart, pausepart)
 }
 
@@ -331,6 +342,10 @@ func printSolution(solution *bignum.Solution) (r string) {
 	if solution.FromB {
 		sdirection = "Additive (A <- B)"
 	}
+	prediction := "Unsolvable"
+	if solution.PredictedStateCount != nil {
+		prediction = fmt.Sprintf("%v", solution.PredictedStateCount)
+	}
 	r = fmt.Sprintf("Solution\n") +
 		fmt.Sprintf("- Result: %s\n", solution.Code) +
 		fmt.Sprintf("- Complexity: %v\n", solution.Complexity) +
@@ -338,23 +353,23 @@ func printSolution(solution *bignum.Solution) (r string) {
 		fmt.Sprintf("- Direction: %s\n", sdirection) +
 		fmt.Sprintf("- CountFromA: %v\n", solution.CountFromA) +
 		fmt.Sprintf("- CountFromB: %v\n", solution.CountFromB) +
-		fmt.Sprintf("- PredictedSteps: %v\n", solution.PredictedStateCount) +
+		fmt.Sprintf("- PredictedSteps: %v\n", prediction) +
 		fmt.Sprintf("- Simulated Steps: %v\n", solution.Operations.GetNextIndex())
 	return r
 }
 
 func getInitialInstructions() (s string) {
-	return "[Enter] Begin Selection"
+	return "[Enter] Begin Selection, [esc] Exit"
 }
 
 func getSelectingInstructions() (s string) {
-	return "[Enter] Select Job, [UpArrow] Move Selection Up, [DownArrow] Move Selection Down"
+	return "[Enter] Select Job, [UpArrow] Move Selection Up, [DownArrow] Move Selection Down, [esc] Exit"
 }
 
 func getSelectedInstructions() (s string) {
 	if lastselected > -1 && lastselected < len(joblist) && &joblist[lastselected] != nil &&
 		!joblist[lastselected].controller.IsTerminated() {
-		return getInitialInstructions() + " " +
+		return getInitialInstructions() + ", " +
 			"[Tab] Pause/UnPause"
 	}
 	return getInitialInstructions()
