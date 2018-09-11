@@ -5,10 +5,18 @@ import (
 )
 import bp "arrdude.com/bucketproblem"
 
+//Used as LU for generateSimulation() every Fill or empty has a corresponding pour.
+var stepsPerAction = big.NewInt(2)
+
+//generateGCD(controller *ChannelController) is the heart of the bucketproblem solution. It will examine the problem for
+// solvability, then using the Extended Euclidean Algorithm it will determine the Greatest Common Denominator of the
+// buckets specified in s.Problem *Problem and also the Multiplicative inverse values for each. From these values it
+// also computes the fastest route to solution storing the predicted number of steps and resulting states the simulator
+// will run through.
 func (s *Solution) generateGCD(controller *ChannelController) {
 	controller.state = controller.state | StageGcd | Running | Initialized
 
-	if !controller.mayContinue() {
+	if !controller.MayContinue() {
 		s.Operations.appendErrorBucket(bigzero, bp.ProcessKilled, controller)
 		return
 	}

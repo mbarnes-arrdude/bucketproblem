@@ -118,122 +118,37 @@ func NewChannelController(solution *Solution, autorun bool) (state *ChannelContr
 	return state
 }
 
-func (p *ChannelController) startListeners(autostart bool) {
-	var wg sync.WaitGroup
-	if !autostart {
-		wg.Add(2)
-	}
-	go p.listenStateChanges(wg, autostart)
-	if autostart {
-		p.StartStopCollector <- Start
-		p.listenSimulationEvents(wg, autostart)
-	} else {
-		go p.listenSimulationEvents(wg, autostart)
-	}
-	defer func() {
-		if !autostart {
-			wg.Wait()
-		}
-		close(p.StartStopCollector)
-		close(p.simulationOperationCollector)
-		close(p.stateCollector)
-	}()
+//GetStopStartChannel() returns a channel for the caller to send directions to the controller. Reads on the returned
+// channel are blocking with a very small buffer. Blocking should not happen except under extreme resource constraint
+// as the channel is read aggressively. Signals sent on this channel will be echoed on the state channel
+// that the controller is subscribed to.
+//
+//The following signals affect the controller:
+//s <- Start will start a idling controller causing a simulation run after first running the GCD.
+//s <- StartGdcOnly will start an idling controller and run the GCD analysis, but not run the simulation.
+//s <- StartSimulationOnly will start an idling controller's simulation on the current solution. The simulation will
+//  stop and register an error in the Solution if the GCD stage has not populated the intermediate data eg Denominator
+//  or CountFromA.
+//s <- Pause will toggle the controller's pause mode. While paused, simulations block at appropriate stopping points.
+//s <- Kill will cause the controller to halt all operations at appropriate stopping points and register an error in the
+// Solution.
+func (s *ChannelController) GetStopStartChannel() *chan ProcessControlOperation {
+	return &s.StartStopCollector
 }
 
-func (p *ChannelController) mayContinue() bool {
+//MayContinue returns false if the controller is terminated causing the simulation to exit. If the controller is paused
+// it will block until unpaused or terminated
+func (p *ChannelController) MayContinue() bool {
 	if !p.IsRunning() || p.IsTerminated() {
 		return false
 	}
-	for p.IsPaused() {
+	for p.IsPaused() || p.IsTerminated() {
 		time.Sleep(time.Duration(pauserelaxedperiod) * time.Millisecond)
 	}
 	if !p.IsRunning() || p.IsTerminated() {
 		return false
 	}
 	return true
-}
-
-func (p *ChannelController) changeState(op ProcessControlOperation) {
-
-	switch op {
-	case Kill:
-		p.state = p.state & ^ProcessStats & ^StageStats & ^Running & ^Complete
-		p.state = p.state | Error
-		return
-		break
-	case StartSimulationOnly:
-		if p.IsTerminated() {
-			return
-		}
-
-		p.state = p.state & ^StageStats & ^Complete
-		p.state = p.state | StageSimulation | Running | Initialized
-		defer func() {
-			go p.Solution.generateSimulation(p)
-		}()
-
-		return
-		break
-	case StartGcdOnly:
-		if p.IsTerminated() {
-			return
-		}
-		p.state = p.state & ^StageStats & ^Complete
-		p.state = p.state | StageGcd | Running | Initialized
-		defer func() {
-			go func() {
-				p.Solution.generateGCD(p)
-			}()
-		}()
-		return
-		break
-	case Done:
-		p.state = p.state & ^Running
-		p.state = p.state | ProcessFinished
-		return
-		break
-	case StageDone:
-		p.state = int(p.state) | Complete
-		if p.GetStage() == StageGcd && p.IsAutorun() {
-			p.stateCollector <- StartSimulationOnly
-			return
-			break
-		}
-		p.stateCollector <- Done
-		return
-		break
-	case Pause:
-		if p.IsPaused() {
-			p.state = p.state & ^Paused
-			p.state = p.state | Initialized | Running
-		} else {
-			p.state = p.state | Paused
-		}
-		return
-		break
-	case Start:
-		if p.IsRunning() && p.IsStageComplete() {
-			if p.GetStage() == StageGcd && p.IsAutorun() {
-				p.autorun = true
-				p.state = p.state | Complete
-				p.stateCollector <- StartSimulationOnly
-				return
-			}
-		} else if p.IsPaused() {
-			p.state = int(p.state) | Running & ^Paused
-		} else if !p.IsRunning() {
-			if p.GetStage() == Noop {
-				p.autorun = true
-				p.stateCollector <- StartGcdOnly
-				return
-			}
-		}
-		break
-	}
-}
-
-func (s *ChannelController) GetStopStartChannel() *chan ProcessControlOperation {
-	return &s.StartStopCollector
 }
 
 func (p *ChannelController) IsAutorun() bool {
@@ -316,6 +231,107 @@ func (s *ChannelController) UnregisterResultChannel(name string) {
 	s.simulationOperationEmittersMutex.Lock()
 	delete(s.simulationOperationEmitters, name)
 	s.simulationOperationEmittersMutex.Unlock()
+}
+
+func (p *ChannelController) changeState(op ProcessControlOperation) {
+
+	switch op {
+	case Kill:
+		p.state = p.state & ^ProcessStats & ^StageStats & ^Running & ^Complete
+		p.state = p.state | Error
+		return
+		break
+	case StartSimulationOnly:
+		if p.IsTerminated() {
+			return
+		}
+
+		p.state = p.state & ^StageStats & ^Complete
+		p.state = p.state | StageSimulation | Running | Initialized
+		defer func() {
+			go p.Solution.generateSimulation(p)
+		}()
+
+		return
+		break
+	case StartGcdOnly:
+		if p.IsTerminated() {
+			return
+		}
+		p.state = p.state & ^StageStats & ^Complete
+		p.state = p.state | StageGcd | Running | Initialized
+		defer func() {
+			go func() {
+				p.Solution.generateGCD(p)
+			}()
+		}()
+		return
+		break
+	case Done:
+		p.state = p.state & ^Running
+		p.state = p.state | ProcessFinished
+		return
+		break
+	case StageDone:
+		p.state = int(p.state) | Complete
+		if p.GetStage() == StageGcd && p.IsAutorun() {
+			p.stateCollector <- StartSimulationOnly
+			return
+			break
+		}
+		p.stateCollector <- Done
+		return
+		break
+	case Pause:
+		if p.IsPaused() {
+			p.state = p.state & ^Paused
+			p.state = p.state | Initialized | Running
+		} else {
+			p.state = p.state | Paused
+		}
+		return
+		break
+	case Start:
+		if p.IsRunning() && p.IsStageComplete() {
+			if p.GetStage() == StageGcd && p.IsAutorun() {
+				p.autorun = true
+				p.state = p.state | Complete
+				p.stateCollector <- StartSimulationOnly
+				return
+			}
+		} else if p.IsPaused() {
+			p.state = int(p.state) | Running & ^Paused
+		} else if !p.IsRunning() {
+			if p.GetStage() == Noop {
+				p.autorun = true
+				p.stateCollector <- StartGcdOnly
+				return
+			}
+		}
+		break
+	}
+}
+
+func (p *ChannelController) startListeners(autostart bool) {
+	var wg sync.WaitGroup
+	if !autostart {
+		wg.Add(2)
+	}
+	go p.listenStateChanges(wg, autostart)
+	if autostart {
+		p.listenSimulationEvents(wg, autostart)
+		p.StartStopCollector <- Start
+	} else {
+		go p.listenSimulationEvents(wg, autostart)
+	}
+	defer func() {
+		if !autostart {
+			wg.Wait()
+		}
+		close(p.StartStopCollector)
+		close(p.simulationOperationCollector)
+		close(p.stateCollector)
+	}()
 }
 
 func (s *ChannelController) listenStateChanges(group sync.WaitGroup, autostart bool) {

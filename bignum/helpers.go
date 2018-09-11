@@ -11,13 +11,9 @@ var bigzero = big.NewInt(0)
 var bigone = big.NewInt(1)
 var bignegone = big.NewInt(-1)
 
-//Used as final LU for generateSimulation()
-var stepsPerAction = big.NewInt(2)
-
 //Spew() prints to stdout a human meaningful representation of a Solution
 // Output contains newlines.
 // WARNING: Helper function only for development. Not versioned. Do not use in production.
-
 func (s Solution) Spew() {
 	fmt.Println("\n=====")
 	s.Problem.Spew()

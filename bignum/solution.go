@@ -14,12 +14,12 @@ type Solution struct {
 	MultInverseA        *big.Int     `json:"multinva"`
 	MultInverseB        *big.Int     `json:"multinvb"`
 	Code                p.ResultCode `json:"result"`
-	TvolumeA            *big.Int
-	TvolumeB            *big.Int
-	CountFromA          *big.Int
-	CountFromB          *big.Int
-	FromB               bool `json:"fromb"`
-	PredictedStateCount *big.Int
+	TvolumeA            *big.Int     `json:"tvolumea"`
+	TvolumeB            *big.Int     `json:"tvolumeb"`
+	CountFromA          *big.Int     `json:"countfroma"`
+	CountFromB          *big.Int     `json:"countfromb"`
+	FromB               bool         `json:"fromb"`
+	PredictedStateCount *big.Int     `json:"predictedstatecount"`
 
 	Operations *BucketStateCache `json:"operations"`
 }
