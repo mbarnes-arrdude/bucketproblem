@@ -85,7 +85,7 @@ func (p *Problem) Hash() (hash int) {
 		scale = 0xff
 	}
 	spart := fmt.Sprintf("%02x", scale)
-	fmt.Printf("scale %02x\n", scale)
+	//fmt.Printf("scale %02x\n", scale)
 
 	hexstr := spart + dpartbig + apartbig + bpartbig + bpartsmall + apartsmall + dpartsmall
 
@@ -95,7 +95,7 @@ func (p *Problem) Hash() (hash int) {
 		fmt.Println("ERROR: ", err)
 	}
 
-	fmt.Println("Hash: ", hash)
+	//fmt.Println("Hash: ", hash)
 	return hash
 }
 

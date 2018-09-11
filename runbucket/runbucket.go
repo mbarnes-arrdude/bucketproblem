@@ -47,22 +47,38 @@ func (c *Chans) updateResultsChannelBuffer(newsize int) {
 }
 
 var app = tview.NewApplication()
+
 var table = tview.NewTable().SetBorders(true).SetFixed(1, 1)
+var insttext = tview.NewTextView()
+var problemtext = tview.NewTextView()
+var solutiontext = tview.NewTextView()
+
+var infopane = tview.NewFlex().SetDirection(tview.FlexColumn).
+	AddItem(problemtext, 0, 1, false).
+	AddItem(solutiontext, 0, 1, false)
+var layout = tview.NewFlex().SetDirection(tview.FlexRow).
+	AddItem(table, 12, 6, true).
+	AddItem(infopane, 12, 6, false).
+	AddItem(insttext, 2, 1, false)
+
 var normStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
 var pauseStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
 var runStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
 var doneStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorBlue)
-var selStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorRed)
-var currselStyle = new(tcell.Style).Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
+var currselStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorRed)
+var selStyle = new(tcell.Style).Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
 
 type (
 	JobList []*Job
 )
 
 var lastselected = -1
+var joblist = make([]Job, 3)
 
 func main() {
-	joblist := make([]Job, 3)
+	insttext.SetText(getInitialInstructions())
+	problemtext.SetText("Select a Job From the Table")
+	solutiontext.SetText("")
 	table.Select(0, 0).
 		SetDoneFunc(func(key tcell.Key) {
 			if key == tcell.KeyTab {
@@ -76,6 +92,7 @@ func main() {
 			}
 			if key == tcell.KeyEnter {
 				table.SetSelectable(true, false)
+				insttext.SetText(getSelectingInstructions())
 			}
 		}).
 		SetSelectedFunc(
@@ -97,9 +114,23 @@ func main() {
 					table.GetCell(lastselected, 0).SetStyle(style)
 					table.GetCell(lastselected, 1).SetStyle(style)
 				}
-				lastselected = row
+				if row > -1 && row < len(joblist) {
+					lastselected = row
+					newjob := joblist[row]
+					solutiontext.SetText(printSolution(newjob.controller.Solution))
+					problemtext.SetText(printProblem(newjob.controller.Solution.Problem))
+					insttext.SetText(getSelectedInstructions())
+				}
 			}).
 		SetSelectedStyle(selStyle.Decompose())
+
+	ebucketa, _ := new(big.Int).SetString("57", 10)
+	ebucketb, _ := new(big.Int).SetString("41", 10)
+	edesired, _ := new(big.Int).SetString("20", 10)
+
+	dbucketa, _ := new(big.Int).SetString("57", 10)
+	dbucketb, _ := new(big.Int).SetString("41", 10)
+	ddesired, _ := new(big.Int).SetString("20", 10)
 
 	cbucketa, _ := new(big.Int).SetString("57", 10)
 	cbucketb, _ := new(big.Int).SetString("41", 10)
@@ -116,14 +147,18 @@ func main() {
 	problem := bignum.NewProblem(bucketa, bucketb, desired)
 	bproblem := bignum.NewProblem(bbucketa, bbucketb, bdesired)
 	cproblem := bignum.NewProblem(cbucketa, cbucketb, cdesired)
+	dproblem := bignum.NewProblem(dbucketa, dbucketb, ddesired)
+	eproblem := bignum.NewProblem(ebucketa, ebucketb, edesired)
 
 	joba := NewJob(table, problem)
 	jobb := NewJob(table, bproblem)
 	jobc := NewJob(table, cproblem)
+	jobd := NewJob(table, dproblem)
+	jobe := NewJob(table, eproblem)
 
-	joblist = []Job{*joba, *jobb, *jobc}
+	joblist = []Job{*joba, *jobb, *jobc, *jobd, *jobe}
 
-	if err := app.SetRoot(table, true).Run(); err != nil {
+	if err := app.SetRoot(layout, true).Run(); err != nil {
 		panic(err)
 	}
 }
@@ -199,6 +234,7 @@ func (j *Job) doListenProgress(display *tview.TableCell, group *sync.WaitGroup) 
 	defer func() {
 		if group != nil {
 			display.SetStyle(doneStyle)
+			insttext.SetText(getSelectedInstructions())
 			group.Done()
 		}
 	}()
@@ -241,8 +277,11 @@ func (j *Job) doListenSimulation(display *tview.TableCell, group *sync.WaitGroup
 		select {
 		case bucket := <-j.chans.resultsChannel:
 			display.SetText(printLastTableEntry(bucket))
-			app.Draw()
+			if lastselected == j.pos {
+				solutiontext.SetText(printSolution(j.controller.Solution))
+			}
 			time.Sleep(time.Millisecond * time.Duration(1))
+			app.Draw()
 			if bucket.Operation >= bp.FinalOp {
 				doit = false
 				break
@@ -276,5 +315,47 @@ func printState(c *bignum.ChannelController) string {
 	}
 	problempart := fmt.Sprintf("N: %12v", c.Solution.Problem.Desired)
 	solutionpart := fmt.Sprintf("C:%2x D:%8s P: %12v", c.Solution.GetComplexityScale(), direction, c.Solution.PredictedStateCount)
-	return fmt.Sprintf("%s %s %s", problempart, solutionpart, pausepart)
+	return fmt.Sprintf("%s %s %10s", problempart, solutionpart, pausepart)
+}
+
+func printProblem(problem *bignum.Problem) (r string) {
+	r = fmt.Sprintf("Problem (Hash: %x)\n", problem.Hash()) +
+		fmt.Sprintf("- Bucket A: %v\n", problem.BucketA) +
+		fmt.Sprintf("- Bucket B: %v\n", problem.BucketB) +
+		fmt.Sprintf("- Desired: %v\n", problem.Desired)
+	return r
+}
+
+func printSolution(solution *bignum.Solution) (r string) {
+	sdirection := "Subtractive (A -> B)"
+	if solution.FromB {
+		sdirection = "Additive (A <- B)"
+	}
+	r = fmt.Sprintf("Solution\n") +
+		fmt.Sprintf("- Result: %s\n", solution.Code) +
+		fmt.Sprintf("- Complexity: %v\n", solution.Complexity) +
+		fmt.Sprintf("- GCD: %v\n", solution.Denominator) +
+		fmt.Sprintf("- Direction: %s\n", sdirection) +
+		fmt.Sprintf("- CountFromA: %v\n", solution.CountFromA) +
+		fmt.Sprintf("- CountFromB: %v\n", solution.CountFromB) +
+		fmt.Sprintf("- PredictedSteps: %v\n", solution.PredictedStateCount) +
+		fmt.Sprintf("- Simulated Steps: %v\n", solution.Operations.GetNextIndex())
+	return r
+}
+
+func getInitialInstructions() (s string) {
+	return "[Enter] Begin Selection"
+}
+
+func getSelectingInstructions() (s string) {
+	return "[Enter] Select Job, [UpArrow] Move Selection Up, [DownArrow] Move Selection Down"
+}
+
+func getSelectedInstructions() (s string) {
+	if lastselected > -1 && lastselected < len(joblist) && &joblist[lastselected] != nil &&
+		!joblist[lastselected].controller.IsTerminated() {
+		return getInitialInstructions() + " " +
+			"[Tab] Pause/UnPause"
+	}
+	return getInitialInstructions()
 }
