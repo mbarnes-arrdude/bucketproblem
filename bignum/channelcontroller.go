@@ -10,7 +10,7 @@ import (
 const (
 	pauserelaxedperiod                  = 250
 	SimulationCollectorChannelSizeSmall = 2
-	SimulationCollectorChannelSizeLarge = 200000
+	SimulationCollectorChannelSizeLarge = 2000
 	StateCollectorChannelBufferSize     = 2
 	PublicCommandChannelBufferSize      = 2
 	//ProcessControlOperation Masks
