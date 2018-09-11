@@ -37,16 +37,18 @@ func newChans() (c *Chans) {
 	return r
 }
 
-func (c *Chans) updateResultsChannelBuffer(newsize int) {
-	if newsize < bignum.SimulationCollectorChannelSizeSmall {
-		newsize = bignum.SimulationCollectorChannelSizeSmall
-	} else if newsize > bignum.SimulationCollectorChannelSizeLarge {
-		newsize = bignum.SimulationCollectorChannelSizeLarge
-	}
-	c.resultsChannel = make(chan bignum.SimulationState, newsize)
-}
-
 var app = tview.NewApplication()
+
+var newBucketA = big.NewInt(57)
+var newBucketB = big.NewInt(37)
+var newDesired = big.NewInt(7)
+
+var normStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
+var pauseStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
+var runStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
+var doneStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorBlue)
+var currselStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorRed)
+var selStyle = new(tcell.Style).Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
 
 var table = tview.NewTable().SetBorders(true).SetFixed(1, 1)
 var insttext = tview.NewTextView()
@@ -57,16 +59,37 @@ var infopane = tview.NewFlex().SetDirection(tview.FlexColumn).
 	AddItem(problemtext, 0, 1, false).
 	AddItem(solutiontext, 0, 1, false)
 var layout = tview.NewFlex().SetDirection(tview.FlexRow).
-	AddItem(table, 12, 6, true).
+	AddItem(table, 0, 6, true).
 	AddItem(infopane, 12, 6, false).
 	AddItem(insttext, 2, 1, false)
+var form = tview.NewForm().
+	AddInputField("Bigger Bucket", newBucketA.Text(10), 30, nil, func(newsval string) {
+		newBucketA = big.NewInt(0)
+		newBucketA, _ = newBucketA.SetString(newsval, 10)
+	}).
+	AddInputField("Smaller Bucket", newBucketB.Text(10), 30, nil, func(newsval string) {
+		newBucketB = big.NewInt(0)
+		newBucketB, _ = newBucketB.SetString(newsval, 10)
+	}).
+	AddInputField("Desired", newDesired.Text(10), 30, nil, func(newsval string) {
+		newDesired = big.NewInt(0)
+		newDesired, _ = newDesired.SetString(newsval, 10)
+	}).
+	AddButton("Cancel", func() {
+		app.SetRoot(layout, true)
+	}).
+	AddButton("Save", func() {
+		submitNewProblem()
+		app.SetRoot(layout, true)
+	})
 
-var normStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorWhite)
-var pauseStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
-var runStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorYellow)
-var doneStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorBlue)
-var currselStyle = new(tcell.Style).Background(tcell.ColorBlack).Foreground(tcell.ColorRed)
-var selStyle = new(tcell.Style).Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
+func submitNewProblem() {
+	bucketA := new(big.Int).Set(newBucketA)
+	bucketB := new(big.Int).Set(newBucketB)
+	desired := new(big.Int).Set(newDesired)
+	problem := bignum.NewProblem(bucketA, bucketB, desired)
+	newJob(table, problem)
+}
 
 type (
 	JobList []*Job
@@ -100,34 +123,7 @@ func main() {
 		}).
 		SetSelectedFunc(
 			func(row int, column int) {
-				table.GetCell(row, 0).SetStyle(currselStyle)
-				if lastselected > -1 && lastselected < len(joblist) && row != lastselected {
-					joblistmutex.Lock()
-					oldjob := joblist[lastselected]
-					style := normStyle
-					if &oldjob != nil {
-						if oldjob.controller.IsTerminated() {
-							style = doneStyle
-						} else if oldjob.controller.IsPaused() {
-							style = pauseStyle
-						} else if oldjob.controller.IsRunning() {
-							style = runStyle
-						}
-					}
-					table.GetCell(lastselected, 0).SetStyle(style)
-					table.GetCell(lastselected, 1).SetStyle(style)
-					joblistmutex.Unlock()
-				}
-				if row > -1 && row < len(joblist) {
-					joblistmutex.Lock()
-					lastselected = row
-					newjob := joblist[row]
-					solutiontext.SetText(printSolution(newjob.controller.Solution))
-					problemtext.SetText(printProblem(newjob.controller.Solution.Problem))
-					insttext.SetText(getSelectedInstructions())
-					joblistmutex.Unlock()
-				}
-				table.SetSelectable(false, false)
+				selectRow(row)
 			}).
 		SetSelectedStyle(selStyle.Decompose())
 
@@ -157,27 +153,67 @@ func main() {
 	dproblem := bignum.NewProblem(dbucketa, dbucketb, ddesired)
 	eproblem := bignum.NewProblem(ebucketa, ebucketb, edesired)
 
-	joba := NewJob(table, problem)
-	jobb := NewJob(table, bproblem)
-	jobc := NewJob(table, cproblem)
-	jobd := NewJob(table, dproblem)
-	jobe := NewJob(table, eproblem)
+	joblist = []Job{}
 
-	joblist = []Job{*joba, *jobb, *jobc, *jobd, *jobe}
+	newJob(table, problem)
+	newJob(table, bproblem)
+	newJob(table, cproblem)
+	newJob(table, dproblem)
+	newJob(table, eproblem)
+
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlN {
+			app.SetRoot(form, true)
+		}
+		return event
+	})
+
+	if len(joblist) > 0 {
+		selectRow(0)
+	}
 
 	if err := app.SetRoot(layout, true).Run(); err != nil {
 		panic(err)
 	}
 }
 
-func setSelected(sel int) {
-	//r, c := table.GetSelection()
+func selectRow(row int) {
+	table.GetCell(row, 0).SetStyle(currselStyle)
+	table.SetSelectable(false, false)
+	if lastselected > -1 && lastselected < len(joblist) && row != lastselected {
+		joblistmutex.Lock()
+		oldjob := joblist[lastselected]
+		style := normStyle
+		if &oldjob != nil {
+			if oldjob.controller.IsTerminated() {
+				style = doneStyle
+			} else if oldjob.controller.IsPaused() {
+				style = pauseStyle
+			} else if oldjob.controller.IsRunning() {
+				style = runStyle
+			}
+		}
+		table.GetCell(lastselected, 0).SetStyle(style)
+		table.GetCell(lastselected, 1).SetStyle(style)
+		joblistmutex.Unlock()
+	}
+	if row > -1 && row < len(joblist) {
+		joblistmutex.Lock()
+		lastselected = row
+		newjob := joblist[row]
+		solutiontext.SetText(printSolution(newjob.controller.Solution))
+		problemtext.SetText(printProblem(newjob.controller.Solution.Problem))
+		insttext.SetText(getSelectedInstructions())
+		joblistmutex.Unlock()
+	}
 }
 
 func addJob(j *Job) {
-	newidx := table.GetRowCount()
-
+	joblistmutex.Lock()
+	newidx := len(joblist)
 	j.pos = newidx
+	joblist = append(joblist, []Job{*j}...)
+	joblistmutex.Unlock()
 	table.SetCell(newidx, 0,
 		j.statecell.
 			SetStyle(normStyle).
@@ -189,7 +225,7 @@ func addJob(j *Job) {
 			SetAlign(tview.AlignLeft).SetExpansion(40))
 }
 
-func NewJob(table *tview.Table, problem *bignum.Problem) (j *Job) {
+func newJob(table *tview.Table, problem *bignum.Problem) (j *Job) {
 	j = new(Job)
 	j.statecell = tview.NewTableCell("hi")
 	j.simcell = tview.NewTableCell("there")
@@ -209,6 +245,7 @@ func NewJob(table *tview.Table, problem *bignum.Problem) (j *Job) {
 		*controlChannel <- bignum.Start
 	}()
 
+	selectRow(j.pos)
 	return j
 }
 
@@ -240,7 +277,11 @@ func (j *Job) doListenProgress(display *tview.TableCell, group *sync.WaitGroup) 
 	var running = true
 	defer func() {
 		if group != nil {
-			display.SetStyle(doneStyle)
+			if j.pos == lastselected {
+				display.SetStyle(currselStyle)
+			} else {
+				display.SetStyle(doneStyle)
+			}
 			insttext.SetText(getSelectedInstructions())
 			group.Done()
 		}
@@ -359,11 +400,11 @@ func printSolution(solution *bignum.Solution) (r string) {
 }
 
 func getInitialInstructions() (s string) {
-	return "[Enter] Begin Selection, [esc] Exit"
+	return "[Enter] Begin Selection, [Ctl+N] New Problem, [esc] Exit"
 }
 
 func getSelectingInstructions() (s string) {
-	return "[Enter] Select Job, [UpArrow] Move Selection Up, [DownArrow] Move Selection Down, [esc] Exit"
+	return "[Enter] Select Job, [UpArrow] Move Selection Up, [DownArrow] Move Selection Down, [Ctl+N] New Problem, [esc] Exit"
 }
 
 func getSelectedInstructions() (s string) {

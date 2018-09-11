@@ -51,6 +51,8 @@ func NewSolution(problem *Problem) (r *Solution) {
 	return r
 }
 
+//compareCountFromAandCountFromB returns the int result of comparing the predicted counts if pouring in the simulation
+// were "From" bucket A or "From" bucket B in Problem. The predictions are calculated during (s *Solution)generateGCD().
 func (s *Solution) compareCountFromAandCountFromB() int {
 	return s.CountFromA.Cmp(s.CountFromB)
 }

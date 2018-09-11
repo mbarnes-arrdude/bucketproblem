@@ -28,6 +28,7 @@ func NewProblem(a, b, d *big.Int) (p *Problem) {
 	return p
 }
 
+//compareAandB returns the int result of A.Cmp(B) on the buckets
 func (p *Problem) compareAandB() int {
 	return p.BucketA.Cmp(p.BucketB)
 }

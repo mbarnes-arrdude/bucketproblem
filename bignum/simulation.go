@@ -5,8 +5,8 @@ import (
 	"math/big"
 )
 
-//SimulationState holds the state of a bucket at a particular step
-// Values calculated are solution after accompanied operation.
+//SimulationState holds the state of a bucket at a particular step of the simulation.
+// Bucket values are the result of the accompanied operation.
 type SimulationState struct {
 	Idx           *big.Int               `json: idx`
 	Operation     bp.SimulationOperation `json:"operation"`
@@ -14,7 +14,7 @@ type SimulationState struct {
 	AmountBucketB *big.Int               `json:"bucketb"`
 }
 
-//BucketStateList is an array of SimulationState pointers
+//BucketStateList is an array of SimulationState pointers. It is populated by the simulation as run by the controller.
 type BucketStateList []*SimulationState
 
 // Stores in order of operation.
@@ -50,7 +50,14 @@ func newBucketStateCache() (b *BucketStateCache) {
 	return b
 }
 
+//GetLastOperation() returns the last entry in the simulation state cache
+//
+// Returns:
+// nil if the cache is empty
 func (b *BucketStateCache) GetLastOperation() (s *SimulationState) {
+	if len(b.BucketStateList) < 1 {
+		return nil
+	}
 	s = b.BucketStateList[len(b.BucketStateList)-1]
 	return s
 }
@@ -157,6 +164,7 @@ func (blist BucketStateList) isFull() bool {
 	return len(blist) >= bp.MaxOperationsListSize
 }
 
+//Returns the actual sum of operations run in the simulation.
 func (s BucketStateCache) GetNextIndex() *big.Int {
 	//index 0 is always InitialOp
 	fullcount := new(big.Int)
