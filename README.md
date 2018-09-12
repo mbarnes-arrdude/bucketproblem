@@ -4,7 +4,7 @@ code challenge - temporary
 # Demo Instructions
 
 1. Install a golang development environment from http://golang.org (it's easier than you think)
-2. Download, clone or `go get -t https://github.com/mbarnes-arrdude/bucketproblem`
+2. Download, clone or `go get github.com/mbarnes-arrdude/bucketproblem`
 3. Compile the binaries and put them in your path (if $GOBIN is not set or in your path)
 4. Run `calcbucket 5 3 4`
 5. Run `runbucket` for an interactive way to launch simulations with long run times
