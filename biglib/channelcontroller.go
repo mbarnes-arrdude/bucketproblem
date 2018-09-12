@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import (
 	bp "arrdude.com/bucketproblem"

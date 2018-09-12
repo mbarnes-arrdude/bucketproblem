@@ -2,7 +2,7 @@ package main
 
 import (
 	bp "arrdude.com/bucketproblem"
-	bucketproblem "arrdude.com/bucketproblem/bignum"
+	bucketproblem "arrdude.com/bucketproblem/biglib"
 	"errors"
 	"fmt"
 	"github.com/urfave/cli"

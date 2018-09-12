@@ -2,8 +2,8 @@ package bucketproblem
 
 const (
 	ResultsOK              ResultCode = 0
-	ResultsTruncated       ResultCode = 1
-	BucketSizeMin          ResultCode = 2
+	ResultsTruncated       ResultCode = 1 //legacy
+	BucketSizeMin          ResultCode = 2 //legacy
 	DenominatorNotMultiple ResultCode = 3
 	BucketATooSmall        ResultCode = 4
 	BucketBTooSmall        ResultCode = 5
@@ -12,6 +12,8 @@ const (
 	DesiredTooBig          ResultCode = 8
 	NoGCDFound             ResultCode = 9
 	ProcessKilled          ResultCode = 10
+
+	badidxresultcode = "Unknown Solution"
 )
 
 //ResultCode is a pseudo-enum having descriptions of ResultCodes
@@ -33,7 +35,7 @@ var ResultCodes = [...]string{
 
 func (code ResultCode) String() string {
 	if code < ResultsOK || code > ProcessKilled {
-		return "Unknown Solution"
+		return badidxresultcode
 	}
 	return ResultCodes[code]
 }

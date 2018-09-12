@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import (
 	"math/big"
@@ -14,9 +14,9 @@ type Problem struct {
 //NewProblem creates a new Problem from parameters describing each bucket size and the desired remainder.
 //
 // Parameters:
-// a *bignum.Int Size of bucket A
-// b *bignum.Int Size of bucket B
-// d *bignum.Int Desired remainder from the solution
+// a *big.Int Size of bucket A
+// b *big.Int Size of bucket B
+// d *big.Int Desired remainder from the solution
 //
 // Returns:
 // p *Problem a pointer to the created object

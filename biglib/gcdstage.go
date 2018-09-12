@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import (
 	"math/big"

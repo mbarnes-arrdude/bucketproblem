@@ -1,0 +1,4 @@
+package biglib
+
+//with (p *Problem) Hash()
+// ensure with acceptance test format across a bracket of problems each val == 0x1, 0xf, 0xe, 0x11, 0xf1, 0xfe, 0xff, 0xff0, 0xffe, 0xfff

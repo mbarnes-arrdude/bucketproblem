@@ -6,8 +6,11 @@ const (
 	Fill            SimulationOperation = 2
 	Pour            SimulationOperation = 3
 	FinalOp         SimulationOperation = 4
-	Truncated       SimulationOperation = 5
+	Truncated       SimulationOperation = 5 //legacy
 	SimulationError SimulationOperation = 6
+
+	badidxstring = "Unknown"
+	badidxrune   = '.'
 )
 
 type SimulationOperation int
@@ -34,14 +37,14 @@ var SimulationOperationChars = [...]rune{
 
 func (o SimulationOperation) String() string {
 	if o < InitialOp || o > SimulationError {
-		return "Unknown"
+		return badidxstring
 	}
 	return SimulationOperations[o]
 }
 
 func (o SimulationOperation) Rune() rune {
 	if o < InitialOp || o > SimulationError {
-		return '.'
+		return badidxrune
 	}
 	return SimulationOperationChars[o]
 }

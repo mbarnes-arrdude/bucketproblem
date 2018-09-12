@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import (
 	bp "arrdude.com/bucketproblem"
@@ -25,30 +25,6 @@ type BucketStateCache struct {
 	FillCount  *big.Int `json:"fillcount"`
 	PourCount  *big.Int `json:"pourcount"`
 	EmptyCount *big.Int `json:"emptycount"`
-}
-
-func newBucketState(idx *big.Int, from *big.Int, to *big.Int, operation bp.SimulationOperation, fromb bool) (s *SimulationState) {
-	s = new(SimulationState)
-	s.Idx = idx
-	if fromb {
-		s.AmountBucketA = new(big.Int).Set(to)
-		s.AmountBucketB = new(big.Int).Set(from)
-	} else {
-		s.AmountBucketA = new(big.Int).Set(from)
-		s.AmountBucketB = new(big.Int).Set(to)
-	}
-	s.Operation = operation
-	return s
-}
-
-func newBucketStateCache() (b *BucketStateCache) {
-	b = new(BucketStateCache)
-	b.FillCount = big.NewInt(0)
-	b.PourCount = big.NewInt(0)
-	b.EmptyCount = big.NewInt(0)
-
-	b.BucketStateList = make(BucketStateList, 0)
-	return b
 }
 
 func (blist BucketStateList) isFull() bool {
@@ -115,4 +91,28 @@ func (c *BucketStateCache) appendErrorBucket(index *big.Int, code bp.ResultCode,
 		return false
 	}
 	return true
+}
+
+func newBucketState(idx *big.Int, from *big.Int, to *big.Int, operation bp.SimulationOperation, fromb bool) (s *SimulationState) {
+	s = new(SimulationState)
+	s.Idx = idx
+	if fromb {
+		s.AmountBucketA = new(big.Int).Set(to)
+		s.AmountBucketB = new(big.Int).Set(from)
+	} else {
+		s.AmountBucketA = new(big.Int).Set(from)
+		s.AmountBucketB = new(big.Int).Set(to)
+	}
+	s.Operation = operation
+	return s
+}
+
+func newBucketStateCache() (b *BucketStateCache) {
+	b = new(BucketStateCache)
+	b.FillCount = big.NewInt(0)
+	b.PourCount = big.NewInt(0)
+	b.EmptyCount = big.NewInt(0)
+
+	b.BucketStateList = make(BucketStateList, 0)
+	return b
 }

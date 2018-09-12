@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import "fmt"
 import bp "arrdude.com/bucketproblem"
@@ -22,7 +22,7 @@ func GetRunningSolutionProcessor(s *Solution) *ChannelController {
 //Returns:
 //c *ChannelController which will have the Solution ready for solving and/or simulation. To direct the controller, the
 // caller should request the Start/Stop channel from the controller using GetStopStartChannel() which will accept and
-// a ProcessControlOperation eg. c.GetStartStopChannel() <- bignum.Start
+// a ProcessControlOperation eg. c.GetStartStopChannel() <- biglib.Start
 func GetIdleSolutionProcessor(poolid string, s *Solution, stateChannel *chan ProcessControlOperation, resultChannel *chan SimulationState) (c *ChannelController) {
 	c = NewChannelController(s, false)
 	var hash = c.Solution.Problem.Hash()

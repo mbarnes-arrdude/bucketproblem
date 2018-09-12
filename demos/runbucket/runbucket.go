@@ -2,7 +2,7 @@ package main
 
 import (
 	bp "arrdude.com/bucketproblem"
-	"arrdude.com/bucketproblem/bignum"
+	"arrdude.com/bucketproblem/biglib"
 	"fmt"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -12,10 +12,10 @@ import (
 )
 
 type Job struct {
-	problem    bignum.Problem
+	problem    biglib.Problem
 	startts    int64
 	endts      int64
-	controller *bignum.ChannelController
+	controller *biglib.ChannelController
 	statecell  *tview.TableCell
 	simcell    *tview.TableCell
 	chans      *Chans
@@ -24,16 +24,16 @@ type Job struct {
 }
 
 type Chans struct {
-	controlChannel *chan bignum.ProcessControlOperation
-	stateChannel   chan bignum.ProcessControlOperation
-	resultsChannel chan bignum.SimulationState
+	controlChannel *chan biglib.ProcessControlOperation
+	stateChannel   chan biglib.ProcessControlOperation
+	resultsChannel chan biglib.SimulationState
 	running        bool
 }
 
 func newChans() (c *Chans) {
 	r := new(Chans)
-	r.stateChannel = make(chan bignum.ProcessControlOperation, 2)
-	r.resultsChannel = make(chan bignum.SimulationState, 20)
+	r.stateChannel = make(chan biglib.ProcessControlOperation, 2)
+	r.resultsChannel = make(chan biglib.SimulationState, 20)
 	return r
 }
 
@@ -87,7 +87,7 @@ func submitNewProblem() {
 	bucketA := new(big.Int).Set(newBucketA)
 	bucketB := new(big.Int).Set(newBucketB)
 	desired := new(big.Int).Set(newDesired)
-	problem := bignum.NewProblem(bucketA, bucketB, desired)
+	problem := biglib.NewProblem(bucketA, bucketB, desired)
 	newJob(table, problem)
 }
 
@@ -109,7 +109,7 @@ func main() {
 				joblistmutex.Lock()
 				if lastselected > -1 && lastselected < len(joblist) {
 					pjob := joblist[lastselected]
-					*pjob.controller.GetStopStartChannel() <- bignum.Pause
+					*pjob.controller.GetStopStartChannel() <- biglib.Pause
 				}
 				joblistmutex.Unlock()
 			}
@@ -147,11 +147,11 @@ func main() {
 	bucketb, _ := new(big.Int).SetString("10013", 10)
 	desired, _ := new(big.Int).SetString("10003", 10)
 
-	problem := bignum.NewProblem(bucketa, bucketb, desired)
-	bproblem := bignum.NewProblem(bbucketa, bbucketb, bdesired)
-	cproblem := bignum.NewProblem(cbucketa, cbucketb, cdesired)
-	dproblem := bignum.NewProblem(dbucketa, dbucketb, ddesired)
-	eproblem := bignum.NewProblem(ebucketa, ebucketb, edesired)
+	problem := biglib.NewProblem(bucketa, bucketb, desired)
+	bproblem := biglib.NewProblem(bbucketa, bbucketb, bdesired)
+	cproblem := biglib.NewProblem(cbucketa, cbucketb, cdesired)
+	dproblem := biglib.NewProblem(dbucketa, dbucketb, ddesired)
+	eproblem := biglib.NewProblem(ebucketa, ebucketb, edesired)
 
 	joblist = []Job{}
 
@@ -225,7 +225,7 @@ func addJob(j *Job) {
 			SetAlign(tview.AlignLeft).SetExpansion(40))
 }
 
-func newJob(table *tview.Table, problem *bignum.Problem) (j *Job) {
+func newJob(table *tview.Table, problem *biglib.Problem) (j *Job) {
 	j = new(Job)
 	j.statecell = tview.NewTableCell("hi")
 	j.simcell = tview.NewTableCell("there")
@@ -233,16 +233,16 @@ func newJob(table *tview.Table, problem *bignum.Problem) (j *Job) {
 	j.statecell.SetText("bye")
 	j.simcell.SetText("here")
 
-	solution := bignum.NewSolution(problem)
+	solution := biglib.NewSolution(problem)
 
 	j.chans = newChans()
 
-	j.controller = bignum.GetIdleSolutionProcessor("DUMMY", solution, &j.chans.stateChannel, &j.chans.resultsChannel)
+	j.controller = biglib.GetIdleSolutionProcessor("DUMMY", solution, &j.chans.stateChannel, &j.chans.resultsChannel)
 	j.startListenChannels()
 	addJob(j)
 	defer func() {
 		controlChannel := j.controller.GetStopStartChannel()
-		*controlChannel <- bignum.Start
+		*controlChannel <- biglib.Start
 	}()
 
 	selectRow(j.pos)
@@ -300,7 +300,7 @@ func (j *Job) doListenProgress(display *tview.TableCell, group *sync.WaitGroup) 
 				display.SetStyle(runStyle)
 			}
 
-			if int(op)&int(bignum.Error) > 0 {
+			if int(op)&int(biglib.Error) > 0 {
 				if j.pos == lastselected {
 					display.SetStyle(currselStyle)
 				} else {
@@ -339,11 +339,11 @@ func (j *Job) doListenSimulation(display *tview.TableCell, group *sync.WaitGroup
 	}
 }
 
-func printLastTableEntry(lastbucket bignum.SimulationState) string {
+func printLastTableEntry(lastbucket biglib.SimulationState) string {
 	return fmt.Sprintf("%15v) | %16v | %c | %v\n", lastbucket.Idx, lastbucket.AmountBucketA, lastbucket.Operation.Rune(), lastbucket.AmountBucketB)
 }
 
-func printState(c *bignum.ChannelController) string {
+func printState(c *biglib.ChannelController) string {
 	pausepart := "Sim"
 	if c.IsTerminated() {
 		pausepart = "Done"
@@ -351,9 +351,9 @@ func printState(c *bignum.ChannelController) string {
 		pausepart = "PAUSED"
 	} else {
 		stage := c.GetStage()
-		if stage == bignum.StageGcd {
+		if stage == biglib.StageGcd {
 			pausepart = "GCD"
-		} else if stage == bignum.Noop {
+		} else if stage == biglib.Noop {
 			pausepart = "Ready"
 		}
 	}
@@ -370,7 +370,7 @@ func printState(c *bignum.ChannelController) string {
 	return fmt.Sprintf("%s %s %10s", problempart, solutionpart, pausepart)
 }
 
-func printProblem(problem *bignum.Problem) (r string) {
+func printProblem(problem *biglib.Problem) (r string) {
 	r = fmt.Sprintf("Problem (Hash: %x)\n", problem.Hash()) +
 		fmt.Sprintf("- Bucket A: %v\n", problem.BucketA) +
 		fmt.Sprintf("- Bucket B: %v\n", problem.BucketB) +
@@ -378,7 +378,7 @@ func printProblem(problem *bignum.Problem) (r string) {
 	return r
 }
 
-func printSolution(solution *bignum.Solution) (r string) {
+func printSolution(solution *biglib.Solution) (r string) {
 	sdirection := "Subtractive (A -> B)"
 	if solution.FromB {
 		sdirection = "Additive (A <- B)"

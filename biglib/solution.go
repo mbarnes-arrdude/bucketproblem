@@ -1,4 +1,4 @@
-package bignum
+package biglib
 
 import (
 	p "arrdude.com/bucketproblem"
@@ -26,7 +26,7 @@ type Solution struct {
 
 //NewSolution solves and creates a completed *Solution using the values of a *Problem for its parameters.
 // It calculates GCD and multiplicative inverse values for each side using the extended Euclidean
-// algorithm as implemented in math/bignum. It determines fill count for each by projecting MulInv against the desired
+// algorithm as implemented in math/biglib. It determines fill count for each by projecting MulInv against the desired
 // amount moding against the bucket size. Internally it then calls generateSimulation() to simulate and record the solution.
 //
 // Arguments:
