@@ -26,6 +26,7 @@ func (s Solution) Spew() {
 	fmt.Printf("TvolumeA: %v\n", s.TvolumeA)
 	fmt.Printf("FromB: %t\n", s.FromB)
 	fmt.Printf("PredictedStateCount: %v\n", s.PredictedStateCount)
+	fmt.Printf("GCDNanoTime: %d\n", s.GCDNanoTime)
 	s.Operations.Spew()
 	fmt.Println("=====")
 }

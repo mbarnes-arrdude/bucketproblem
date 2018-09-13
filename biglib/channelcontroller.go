@@ -319,8 +319,8 @@ func (p *ChannelController) startListeners(autostart bool) {
 	}
 	go p.listenStateChanges(wg, autostart)
 	if autostart {
-		p.listenSimulationEvents(wg, autostart)
 		p.StartStopCollector <- Start
+		p.listenSimulationEvents(wg, autostart)
 	} else {
 		go p.listenSimulationEvents(wg, autostart)
 	}

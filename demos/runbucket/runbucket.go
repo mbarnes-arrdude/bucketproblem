@@ -391,6 +391,7 @@ func printSolution(solution *biglib.Solution) (r string) {
 		fmt.Sprintf("- Result: %s\n", solution.Code) +
 		fmt.Sprintf("- Complexity: %v\n", solution.Complexity) +
 		fmt.Sprintf("- GCD: %v\n", solution.Denominator) +
+		fmt.Sprintf("- GCDNanoTime: %v\n", solution.GCDNanoTime) +
 		fmt.Sprintf("- Direction: %s\n", sdirection) +
 		fmt.Sprintf("- CountFromA: %v\n", solution.CountFromA) +
 		fmt.Sprintf("- CountFromB: %v\n", solution.CountFromB) +

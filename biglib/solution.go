@@ -20,6 +20,7 @@ type Solution struct {
 	CountFromB          *big.Int     `json:"countfromb"`
 	FromB               bool         `json:"fromb"`
 	PredictedStateCount *big.Int     `json:"predictedstatecount"`
+	GCDNanoTime         int64        `json:"gcdnanotime"`
 
 	Operations *BucketStateCache `json:"operations"`
 }

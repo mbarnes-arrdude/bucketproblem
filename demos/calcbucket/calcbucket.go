@@ -52,6 +52,7 @@ func main() {
 			fmt.Printf("- Result: %s\n", solution.Code)
 			fmt.Printf("- Complexity: %v\n", solution.Complexity)
 			fmt.Printf("- GCD: %v\n", solution.Denominator)
+			fmt.Printf("- GCDNanoTime: %v\n", solution.GCDNanoTime)
 			fmt.Printf("- Direction: %s\n", sdirection)
 			fmt.Printf("- CountFromA: %v\n", solution.CountFromA)
 			fmt.Printf("- CountFromB: %v\n", solution.CountFromB)

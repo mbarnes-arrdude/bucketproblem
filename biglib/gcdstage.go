@@ -2,6 +2,7 @@ package biglib
 
 import (
 	"math/big"
+	"time"
 )
 import bp "arrdude.com/bucketproblem"
 
@@ -65,6 +66,8 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 		return
 	}
 
+	begin := time.Now().UnixNano()
+
 	s.CountFromA.Mul(s.CountFromB, bignegone)
 	s.CountFromA.Mod(s.CountFromA, s.Problem.BucketA)
 
@@ -112,6 +115,8 @@ func (s *Solution) generateGCD(controller *ChannelController) {
 	s.PredictedStateCount.Mul(s.PredictedStateCount, stepsPerAction)
 	//add initial state
 	s.PredictedStateCount.Add(s.PredictedStateCount, big.NewInt(1))
+	ended := time.Now().UnixNano()
+	controller.Solution.GCDNanoTime = ended - begin
 
 	controller.stateCollector <- (StageDone)
 }
